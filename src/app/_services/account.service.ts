@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
@@ -18,7 +18,8 @@ export class AccountService {
         private router: Router,
         private http: HttpClient
     ) {
-        this.accountSubject = new BehaviorSubject<Account | null>(null);
+        const storedAccount = localStorage.getItem('account');
+        this.accountSubject = new BehaviorSubject<Account | null>(storedAccount ? JSON.parse(storedAccount) : null);
         this.account = this.accountSubject.asObservable();
     }
 
@@ -29,6 +30,7 @@ export class AccountService {
     login(email: string, password: string) {
         return this.http.post<any>(`${baseUrl}/authenticate`, { email, password }, { withCredentials: true })
             .pipe(map(account => {
+                localStorage.setItem('account', JSON.stringify(account));
                 this.accountSubject.next(account);
                 this.startRefreshTokenTimer();
                 return account;
@@ -38,6 +40,7 @@ export class AccountService {
     logout() {
         this.http.post<any>(`${baseUrl}/revoke-token`, {}, { withCredentials: true }).subscribe();
         this.stopRefreshTokenTimer();
+        localStorage.removeItem('account');
         this.accountSubject.next(null);
         this.router.navigate(['/account/login']);
     }
@@ -45,6 +48,7 @@ export class AccountService {
     refreshToken() {
         return this.http.post<any>(`${baseUrl}/refresh-token`, {}, { withCredentials: true })
             .pipe(map((account) => {
+                localStorage.setItem('account', JSON.stringify(account));
                 this.accountSubject.next(account);
                 this.startRefreshTokenTimer();
                 return account;
@@ -90,6 +94,7 @@ export class AccountService {
                 if (account.id === this.accountValue?.id) {
                     // publish updated account to subscribers
                     account = { ...this.accountValue, ...account };
+                    localStorage.setItem('account', JSON.stringify(account));
                     this.accountSubject.next(account);
                 }
                 return account;
